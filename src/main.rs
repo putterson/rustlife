@@ -11,14 +11,14 @@ use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL };
 
-pub struct App<'a> {
+pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
     speed : f64,
     staleness : f64,
-    cells : &'a mut [[bool; 32]; 32]
+    cells : Vec<Vec<bool>>
 }
 
-impl<'a> App<'a> {
+impl App {
 
     fn render(&mut self, args: &RenderArgs) {
         use graphics::*;
@@ -30,7 +30,7 @@ impl<'a> App<'a> {
 
         let size = 10.0;
         let pad = 2.0;
-        let board_size = (size+pad)*32.0; //This assumes square board
+        let board_size = (size+pad)*120.0; //This assumes square board
         let square = rectangle::square(0.0, 0.0, size);
 
         let ref mut cells = self.cells;
@@ -81,7 +81,7 @@ impl<'a> App<'a> {
                         }});
                         let surr_sum : u8 = surr.sum();
 
-                        if(surr_sum > 3){
+                        if surr_sum > 3 {
                             actions.push((x,y,false))
                         } else if surr_sum < 2 {
                             actions.push((x,y,false))
@@ -131,21 +131,26 @@ fn main() {
 
     // Create a new game and run it.
 
-    let mut initial_cells = &mut[[false; 32] ; 32];
-    for x in 0..32 {
-        for y in 0..32 {
+    let size = 120;
+
+    let mut initial_board : Vec<Vec<bool>> = vec![];
+
+    for x in 0..size {
+        let mut column : Vec<bool> = vec![];
+        for y in 0..size {
             let chance = rand::thread_rng().gen_range(1, 101);
             let mut state = false;
             if chance > 80 { state = true; }
-            initial_cells[x][y] = state;
+            column.push(state);
         }
+        initial_board.push(column);
     }
 
     let mut app = App {
         gl: GlGraphics::new(opengl),
         speed: 0.1,
         staleness: 0.0,
-        cells: initial_cells
+        cells: initial_board
     };
     
     let mut events = window.events();
