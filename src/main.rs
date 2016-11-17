@@ -4,6 +4,9 @@ extern crate glutin_window;
 extern crate opengl_graphics;
 extern crate rand;
 
+mod life;
+
+use life::LifeBoard;
 use rand::Rng;
 use piston::window::WindowSettings;
 use piston::event_loop::*;
@@ -16,7 +19,7 @@ pub struct App {
     speed : f64,
     staleness : f64,
     scale: f64,
-    cells : Box<[Box<[bool]>]>
+    cells : LifeBoard
 }
 
 impl App {
@@ -35,15 +38,13 @@ impl App {
             pad = 0.0;
         }
 
-        //pray that the board isn't bigger than u32
-        //Assuming the board is square
-        let board_size = (size+pad)*f64::from(self.cells.len() as u32); 
+        let ref cells = self.cells;
+
+        let board_size_x = cells.x_size as u32;
+        let board_size_y = cells.y_size as u32;
         
         let square = rectangle::square(0.0, 0.0, size);
 
-        let ref mut cells = self.cells;
-
-        // let rotation = self.rotation;
         let (gx, gy) = ((args.width / 2) as f64,
                       (args.height / 2) as f64);
 
@@ -54,15 +55,15 @@ impl App {
 
 
             let transform = c.transform.trans(gx, gy)
-                                       .trans(-(board_size/2.0), -(board_size/2.0));
+                                       .trans(-(f64::from(board_size_x)/2.0), -(f64::from(board_size_y)/2.0));
 
-            for (row, x) in cells.iter().zip(0..) {
-                for (column, y) in row.iter().zip(0..) {
+            for x in 0..board_size_x {
+                for y in 0..board_size_y {
                     let xfloat : f64 = f64::from(x);
                     let yfloat : f64 = f64::from(y);
-                    let mut colour = RED;
-                    if *column == false {
-                        colour = DARKGREY;
+                    let mut colour = DARKGREY;
+                    if cells.get(x as usize,y as usize) == true {
+                        colour = RED;
                     }
                     rectangle(colour, square, transform.trans(xfloat*(size+pad),yfloat*(size+pad)), gl);
 
@@ -79,11 +80,14 @@ impl App {
             let mut actions : Vec<(usize,usize,bool)> = vec![];
             {
                 let ref cells = self.cells;
+
+                let board_size_x = cells.x_size;
+                let board_size_y = cells.y_size;
                 // println!("Stale at {}", self.staleness);
-                for (row, x) in cells.iter().zip(0..) {
-                    for (column, y) in row.iter().zip(0..) {
-                        let coords = surrounding_cells(x,y,cells.len(), row.len());
-                        let surr = coords.iter().map(|&(x,y)| {return match cells[x][y] {
+                for x in 0..board_size_x {
+                    for y in 0..board_size_y {
+                        let coords = surrounding_cells(x,y,board_size_x, board_size_y);
+                        let surr = coords.iter().map(|&(x,y)| {return match cells.get(x,y) {
                             false => 0,
                             true => 1,
                         }});
@@ -102,7 +106,7 @@ impl App {
             }
             
             for (x, y, state) in actions {
-                self.cells[x][y] = state;
+                self.cells.set(x as usize,y as usize, state);
             }
         }
         
@@ -141,17 +145,17 @@ fn main() {
 
     let size = 120;
 
-    let mut board_builder = vec![];
+    let mut new_board = LifeBoard::new(size, size);
 
     for x in 0..size {
         let mut column = vec![false; size];
-        for cell in &mut column {
+        for y in 0..size {
             let chance = rand::thread_rng().gen_range(1, 101);
             let mut state = false;
-            if chance > 80 { state = true; }
-            *cell = state;
+            if chance > 80 { state = true; }{
+                new_board.set(x,y, state);
+            }
         }
-        board_builder.push(column.into_boxed_slice());
     }
 
     let mut app = App {
@@ -159,7 +163,7 @@ fn main() {
         speed: 0.1,
         staleness: 0.0,
         scale: 0.5,
-        cells: board_builder.into_boxed_slice()
+        cells: new_board
     };
     
     let mut events = window.events();
