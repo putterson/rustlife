@@ -15,7 +15,8 @@ pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
     speed : f64,
     staleness : f64,
-    cells : Vec<Vec<bool>>
+    scale: f64,
+    cells : Box<[Box<[bool]>]>
 }
 
 impl App {
@@ -28,9 +29,16 @@ impl App {
         const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
         const DARKGREY: [f32; 4] = [0.2, 0.2, 0.2, 1.0];
 
-        let size = 10.0;
-        let pad = 2.0;
-        let board_size = (size+pad)*120.0; //This assumes square board
+        let size = 10.0 * self.scale;
+        let mut pad = 2.0 * self.scale;
+        if pad < 1.0 {
+            pad = 0.0;
+        }
+
+        //pray that the board isn't bigger than u32
+        //Assuming the board is square
+        let board_size = (size+pad)*f64::from(self.cells.len() as u32); 
+        
         let square = rectangle::square(0.0, 0.0, size);
 
         let ref mut cells = self.cells;
@@ -133,24 +141,25 @@ fn main() {
 
     let size = 120;
 
-    let mut initial_board : Vec<Vec<bool>> = vec![];
+    let mut board_builder = vec![];
 
     for x in 0..size {
-        let mut column : Vec<bool> = vec![];
-        for y in 0..size {
+        let mut column = vec![false; size];
+        for cell in &mut column {
             let chance = rand::thread_rng().gen_range(1, 101);
             let mut state = false;
             if chance > 80 { state = true; }
-            column.push(state);
+            *cell = state;
         }
-        initial_board.push(column);
+        board_builder.push(column.into_boxed_slice());
     }
 
     let mut app = App {
         gl: GlGraphics::new(opengl),
         speed: 0.1,
         staleness: 0.0,
-        cells: initial_board
+        scale: 0.5,
+        cells: board_builder.into_boxed_slice()
     };
     
     let mut events = window.events();
