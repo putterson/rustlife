@@ -1,4 +1,5 @@
 extern crate piston;
+extern crate piston_window;
 extern crate graphics;
 extern crate glutin_window;
 extern crate opengl_graphics;
@@ -173,5 +174,21 @@ fn main() {
         if let Some(u) = e.update_args() {
             app.update(&u);
         }
+
+        if let Some(k) = e.press_args() {
+            use piston_window::Button::Keyboard;
+            use piston_window::Key;
+
+            if k == Keyboard(Key::S) {
+                app.scale = initial_scale;
+            }
+        }
+
+        if let Some(s) = e.mouse_scroll_args() {
+            app.scale += s[1] * (app.scale / 10.0);
+            if app.scale < 0.0 {
+                app.scale = 0.0;
+            }
+        } 
     }
 }
