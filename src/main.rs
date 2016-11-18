@@ -90,21 +90,9 @@ impl App {
                 // println!("Stale at {}", self.staleness);
                 for x in 0..board_size_x {
                     for y in 0..board_size_y {
-                        let coords = surrounding_cells(x,y,board_size_x, board_size_y);
-                        let surr = coords.iter().map(|&(x,y)| {return match cells.get(x,y) {
-                            false => 0,
-                            true => 1,
-                        }});
-                        let surr_sum : u8 = surr.sum();
-
-                        if surr_sum > 3 {
-                            actions.push((x,y,false))
-                        } else if surr_sum < 2 {
-                            actions.push((x,y,false))
-                        } else if surr_sum == 3 {
-                            actions.push((x,y,true))
+                        if cells.get(x,y) {
+                            actions.extend(update_cell((x, y), board_size_x, board_size_y, cells));
                         }
-                        
                     }
                 }
             }
@@ -122,6 +110,40 @@ impl App {
 
 
 }
+
+    fn update_cell((x,y) : (usize, usize), board_size_x : usize, board_size_y : usize, cells : &LifeBoard) -> Vec<(usize, usize, bool)> {
+        let coords = surrounding_cells(x,y,board_size_x, board_size_y);
+        let current_cell = cells.get(x,y);
+        let mut further_updates = vec![];
+        let mut v = vec![];
+        {
+            let surr = coords.iter().map(|&(x,y)| {return match cells.get(x,y) {
+                false => {
+                    further_updates.push((x,y).clone());
+                    return 0;
+                },
+                true => 1,
+            }});
+            let surr_sum : u8 = surr.sum();
+
+
+            if surr_sum > 3 {
+                v.push((x,y,false));
+            } else if surr_sum < 2 {
+                v.push((x,y,false));
+            } else if surr_sum == 3 {
+                v.push((x,y,true));
+            }
+        }
+
+        if current_cell {
+            for update in further_updates.iter() {
+                v.extend(update_cell(*update, board_size_x, board_size_y, cells));
+            }
+        }
+
+        return v;
+    }
 
 fn surrounding_cells(x : usize, y : usize, xmax : usize, ymax : usize) -> Vec<(usize, usize)>{
     let mut v : Vec<(usize,usize)> = vec![];
