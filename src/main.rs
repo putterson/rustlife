@@ -4,9 +4,11 @@ extern crate graphics;
 extern crate glutin_window;
 extern crate opengl_graphics;
 extern crate rand;
+extern crate time;
 
 mod life;
 
+use time::PreciseTime;
 use life::LifeBoard;
 use rand::Rng;
 use piston::window::WindowSettings;
@@ -74,7 +76,8 @@ impl App {
         });
     }
 
-    fn update(&mut self, args: &UpdateArgs) {
+    //Returns true if a true update was done
+    fn update(&mut self, args: &UpdateArgs) -> bool {
         self.staleness += args.dt;
         if self.staleness >= self.speed {
             self.staleness = self.staleness - self.speed;
@@ -109,6 +112,10 @@ impl App {
             for (x, y, state) in actions {
                 self.cells.set(x as usize,y as usize, state);
             }
+
+            return true;
+        } else {
+            return false;
         }
         
     }
@@ -146,6 +153,8 @@ fn main() {
 
     let mut new_board = LifeBoard::new(80, 40);
     let initial_scale = 1.0;
+    
+    let mut updates = 0;
 
     for x in 0..new_board.x_size {
         for y in 0..new_board.y_size {
@@ -172,7 +181,14 @@ fn main() {
         }
 
         if let Some(u) = e.update_args() {
-            app.update(&u);
+            let start = PreciseTime::now();
+            // whatever you want to do
+            if app.update(&u) {
+                let end = PreciseTime::now();
+                println!("{} seconds for update.", start.to(end));
+            }
+
+            
         }
 
         if let Some(k) = e.press_args() {
