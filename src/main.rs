@@ -29,7 +29,6 @@ impl App {
 
         const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
         const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
-        const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
         const DARKGREY: [f32; 4] = [0.2, 0.2, 0.2, 1.0];
 
         let size = 10.0 * self.scale;
@@ -52,10 +51,11 @@ impl App {
             // Clear the screen.
             clear(BLACK, gl);
 
-
+            let board_x_pixels = f64::from(board_size_x)*(size+pad);
+            let board_y_pixels = f64::from(board_size_y)*(size+pad);
 
             let transform = c.transform.trans(gx, gy)
-                                       .trans(-(f64::from(board_size_x)/2.0), -(f64::from(board_size_y)/2.0));
+                                       .trans(-(board_x_pixels/2.0), -(board_y_pixels/2.0));
 
             for x in 0..board_size_x {
                 for y in 0..board_size_y {
@@ -143,16 +143,14 @@ fn main() {
 
     // Create a new game and run it.
 
-    let size = 120;
+    let mut new_board = LifeBoard::new(80, 40);
+    let initial_scale = 1.0;
 
-    let mut new_board = LifeBoard::new(size, size);
-
-    for x in 0..size {
-        let mut column = vec![false; size];
-        for y in 0..size {
+    for x in 0..new_board.x_size {
+        for y in 0..new_board.y_size {
             let chance = rand::thread_rng().gen_range(1, 101);
             let mut state = false;
-            if chance > 80 { state = true; }{
+            if chance > 85 { state = true; }{
                 new_board.set(x,y, state);
             }
         }
@@ -162,7 +160,7 @@ fn main() {
         gl: GlGraphics::new(opengl),
         speed: 0.1,
         staleness: 0.0,
-        scale: 0.5,
+        scale: initial_scale,
         cells: new_board
     };
     
