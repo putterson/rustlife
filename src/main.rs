@@ -9,6 +9,7 @@ extern crate time;
 mod life;
 
 use time::PreciseTime;
+use time::Duration;
 use life::LifeBoard;
 use rand::Rng;
 use piston::window::WindowSettings;
@@ -16,6 +17,7 @@ use piston::event_loop::*;
 use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL };
+use std::env;
 
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
@@ -60,17 +62,19 @@ impl App {
             let transform = c.transform.trans(gx, gy)
                                        .trans(-(board_x_pixels/2.0), -(board_y_pixels/2.0));
 
-            for x in 0..board_size_x {
-                for y in 0..board_size_y {
-                    let xfloat : f64 = f64::from(x);
-                    let yfloat : f64 = f64::from(y);
-                    let mut colour = DARKGREY;
-                    if cells.get(x as usize,y as usize) == true {
-                        colour = RED;
-                    }
-                    rectangle(colour, square, transform.trans(xfloat*(size+pad),yfloat*(size+pad)), gl);
+            // for x in 0..board_size_x {
+            //     for y in 0..board_size_y {
+            //         let xfloat : f64 = f64::from(x);
+            //         let yfloat : f64 = f64::from(y);
+            //         rectangle(DARKGREY, square, transform.trans(xfloat*(size+pad),yfloat*(size+pad)), gl);
 
-                }
+            //     }
+            // }
+
+            for &(x,y) in &cells.active {
+                let xfloat : f64 = f64::from(x as u32);
+                let yfloat : f64 = f64::from(y as u32);
+                rectangle(RED, square, transform.trans(xfloat*(size+pad),yfloat*(size+pad)), gl);
             }
 
         });
@@ -88,12 +92,8 @@ impl App {
                 let board_size_x = cells.x_size;
                 let board_size_y = cells.y_size;
                 // println!("Stale at {}", self.staleness);
-                for x in 0..board_size_x {
-                    for y in 0..board_size_y {
-                        if cells.get(x,y) {
+                for &(x,y) in &cells.active {
                             actions.extend(update_cell((x, y), board_size_x, board_size_y, cells));
-                        }
-                    }
                 }
             }
             
@@ -161,6 +161,14 @@ fn main() {
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
 
+    let mut size = 100;
+    if let Some(arg1) = env::args().nth(1) {
+        if let Ok(i) = arg1.parse::<usize>() {
+            size = i;
+        }
+        println!("The first argument is {}", arg1);
+    }
+
     // Create an Glutin window.
     let mut window: Window = WindowSettings::new(
             "life",
@@ -173,8 +181,8 @@ fn main() {
 
     // Create a new game and run it.
 
-    let mut new_board = LifeBoard::new(80, 40);
-    let initial_scale = 1.0;
+    let mut new_board = LifeBoard::new(size, size);
+    let initial_scale = 0.5;
     
     let mut updates = 0;
 
@@ -196,10 +204,23 @@ fn main() {
         cells: new_board
     };
     
+    let mut update_count = 0;
+    let mut update_acc = Duration::zero();
+    let mut update_max = 0.0;
+
+    let mut render_count = 0;
+    let mut render_acc = Duration::zero();
+    let mut render_max = 0.0;
+
     let mut events = window.events();
     while let Some(e) = events.next(&mut window) {
         if let Some(r) = e.render_args() {
+            let start = PreciseTime::now();
+            // whatever you want to do
             app.render(&r);
+            let end = PreciseTime::now();
+            render_count += 1;
+            render_acc = render_acc + start.to(end);
         }
 
         if let Some(u) = e.update_args() {
@@ -207,10 +228,9 @@ fn main() {
             // whatever you want to do
             if app.update(&u) {
                 let end = PreciseTime::now();
-                println!("{} seconds for update.", start.to(end));
+                update_count += 1;
+                update_acc = update_acc + start.to(end);
             }
-
-            
         }
 
         if let Some(k) = e.press_args() {
@@ -229,4 +249,8 @@ fn main() {
             }
         } 
     }
+
+    println!("Average render time: {}", render_acc / render_count);
+    println!("Average update time: {}", update_acc / update_count);
+    println!("Goodbye");
 }
