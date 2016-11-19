@@ -1,5 +1,5 @@
 [root]
-name = "golife"
+name = "rustlife"
 version = "0.1.0"
 dependencies = [
  "piston 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
