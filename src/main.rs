@@ -85,7 +85,7 @@ impl App {
         self.staleness += args.dt;
         if self.staleness >= self.speed {
             self.staleness = self.staleness - self.speed;
-            let mut actions : Vec<(usize,usize,bool)> = vec![];
+            let mut actions : Vec<(isize,isize,bool)> = vec![];
             {
                 let ref cells = self.cells;
 
@@ -93,12 +93,14 @@ impl App {
                 let board_size_y = cells.y_size;
                 // println!("Stale at {}", self.staleness);
                 for &(x,y) in &cells.active {
-                            actions.extend(update_cell((x, y), board_size_x, board_size_y, cells));
+                    let ix = x as isize;
+                    let iy = y as isize;
+                    actions.extend(update_cell((ix, iy), board_size_x, board_size_y, cells));
                 }
             }
             
             for (x, y, state) in actions {
-                self.cells.set(x as usize,y as usize, state);
+                self.cells.set(x, y, state);
             }
 
             return true;
@@ -111,7 +113,7 @@ impl App {
 
 }
 
-    fn update_cell((x,y) : (usize, usize), board_size_x : usize, board_size_y : usize, cells : &LifeBoard) -> Vec<(usize, usize, bool)> {
+    fn update_cell((x,y) : (isize, isize), board_size_x : usize, board_size_y : usize, cells : &LifeBoard) -> Vec<(isize, isize, bool)> {
         let coords = surrounding_cells(x,y,board_size_x, board_size_y);
         let current_cell = cells.get(x,y);
         let mut further_updates = vec![];
@@ -145,11 +147,12 @@ impl App {
         return v;
     }
 
-fn surrounding_cells(x : usize, y : usize, xmax : usize, ymax : usize) -> Vec<(usize, usize)>{
-    let mut v : Vec<(usize,usize)> = vec![];
-    for xs in [x.wrapping_sub(1), x, x+1].iter() {
-        for ys in [y.wrapping_sub(1), y, y+1].iter() {
-            if (*xs < xmax) & (*ys < ymax) & !((*xs == x) & (*ys == y)) & (*xs <= x+1) & (*ys <= y+1){
+fn surrounding_cells(x : isize, y : isize, xmax : usize, ymax : usize) -> Vec<(isize, isize)>{
+    let mut v : Vec<(isize,isize)> = vec![];
+    for xs in [x-1, x, x+1].iter() {
+        for ys in [y-1, y, y+1].iter() {
+            //& (*xs <= x+1) & (*ys <= y+1)
+            if !((*xs == x) & (*ys == y)) {
                 v.push((*xs,*ys));
             }
         }
@@ -188,17 +191,38 @@ fn main() {
 
     for x in 0..new_board.x_size {
         for y in 0..new_board.y_size {
-            let chance = rand::thread_rng().gen_range(1, 101);
+            //Should be calling distribution::Range according to docs
+            let chance = rand::thread_rng().gen_range(1, 1001);
             let mut state = false;
-            if chance > 85 { state = true; }{
-                new_board.set(x,y, state);
+            if chance > 850 { 
+                state = true;
+                // new_board.set(x as isize,y as isize, state);
+                let ix = x as isize;
+                let iy = y as isize;
+                new_board.set(1+ix,0+iy,true);
+                new_board.set(0+ix,1+iy,true);
+                new_board.set(2+ix,2+iy,true);
+                new_board.set(1+ix,2+iy,true);
+                new_board.set(0+ix,2+iy,true);
             }
         }
     }
 
+    // new_board.set(1,0,true);
+    // new_board.set(2,1,true);
+    // new_board.set(0,2,true);
+    // new_board.set(1,2,true);
+    // new_board.set(2,2,true);
+
+    // new_board.set(1+10,0+10,true);
+    // new_board.set(0+10,1+10,true);
+    // new_board.set(2+10,2+10,true);
+    // new_board.set(1+10,2+10,true);
+    // new_board.set(0+10,2+10,true);
+
     let mut app = App {
         gl: GlGraphics::new(opengl),
-        speed: 0.1,
+        speed: 0.05,
         staleness: 0.0,
         scale: initial_scale,
         cells: new_board

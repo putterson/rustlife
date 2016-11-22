@@ -18,17 +18,26 @@ impl LifeBoard {
         }
     }
 
-    pub fn get(&self, x: usize, y: usize) -> bool {
+    pub fn get(&self, x: isize, y: isize) -> bool {
         // return self.active.contains(&(x,y));
-        return self.board[x + y*self.x_size];
+        let wrapped_x = wrap(x, self.x_size);
+        let wrapped_y = wrap(y, self.y_size);
+        return self.board[wrapped_x + wrapped_y*self.x_size];
+        // return self.active.contains(&(wrapped_x, wrapped_y));
     }
 
-    pub fn set(&mut self, x: usize, y: usize, v: bool) {
+    pub fn set(&mut self, x: isize, y: isize, v: bool) {
+        let wrapped_x = wrap(x, self.x_size);
+        let wrapped_y = wrap(y, self.y_size);
         if v {
-            self.active.insert((x,y));
+            self.active.insert((wrapped_x,wrapped_y));
         } else {
-            self.active.remove(&(x,y));
+            self.active.remove(&(wrapped_x,wrapped_y));
         }
-        self.board[x + y*self.x_size] = v;
+        self.board[wrapped_x + wrapped_y*self.x_size] = v;
     }
+}
+
+fn wrap(i : isize, max : usize) -> usize {
+    ((i + max as isize) % max as isize) as usize
 }
