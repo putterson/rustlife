@@ -5,6 +5,10 @@ extern crate glutin_window;
 extern crate opengl_graphics;
 extern crate rand;
 extern crate time;
+extern crate gfx;
+extern crate gfx_graphics;
+
+extern crate gfx_device_gl;
 
 mod life;
 
@@ -12,12 +16,14 @@ use time::PreciseTime;
 use time::Duration;
 use life::LifeBoard;
 use rand::Rng;
-use piston::window::WindowSettings;
-use piston::event_loop::*;
-use piston::input::*;
-use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{ GlGraphics, OpenGL };
+use opengl_graphics::GlGraphics;
 use std::env;
+use piston_window::*;
+use glutin_window::GlutinWindow;
+use gfx::format::{DepthStencil, Formatted, Srgba8};
+use gfx::Typed;
+// use gfx_graphics::{Flip, Gfx2d, Texture, TextureSettings};
+use gfx_graphics::{Gfx2d};
 
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
@@ -28,63 +34,11 @@ pub struct App {
 }
 
 impl App {
-
-    fn render(&mut self, args: &RenderArgs) {
-        use graphics::*;
-
-        const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
-        const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
-        const DARKGREY: [f32; 4] = [0.2, 0.2, 0.2, 1.0];
-
-        let size = 10.0 * self.scale;
-        let mut pad = 2.0 * self.scale;
-        if pad < 1.0 {
-            pad = 0.0;
-        }
-
-        let ref cells = self.cells;
-
-        let board_size_x = cells.x_size as u32;
-        let board_size_y = cells.y_size as u32;
-        
-        let square = rectangle::square(0.0, 0.0, size);
-
-        let (gx, gy) = ((args.width / 2) as f64,
-                      (args.height / 2) as f64);
-
-        self.gl.draw(args.viewport(), |c, gl| {
-            // Clear the screen.
-            clear(BLACK, gl);
-
-            let board_x_pixels = f64::from(board_size_x)*(size+pad);
-            let board_y_pixels = f64::from(board_size_y)*(size+pad);
-
-            let transform = c.transform.trans(gx, gy)
-                                       .trans(-(board_x_pixels/2.0), -(board_y_pixels/2.0));
-
-            // for x in 0..board_size_x {
-            //     for y in 0..board_size_y {
-            //         let xfloat : f64 = f64::from(x);
-            //         let yfloat : f64 = f64::from(y);
-            //         rectangle(DARKGREY, square, transform.trans(xfloat*(size+pad),yfloat*(size+pad)), gl);
-
-            //     }
-            // }
-
-            for &(x,y) in &cells.active {
-                let xfloat : f64 = f64::from(x as u32);
-                let yfloat : f64 = f64::from(y as u32);
-                rectangle(RED, square, transform.trans(xfloat*(size+pad),yfloat*(size+pad)), gl);
-            }
-
-        });
-    }
-
     //Returns true if a true update was done
     fn update(&mut self, args: &UpdateArgs) -> bool {
         self.staleness += args.dt;
         if self.staleness >= self.speed {
-            self.staleness = self.staleness - self.speed;
+            self.staleness = 0.0;//self.staleness - self.speed;
             let mut actions : Vec<(isize,isize,bool)> = vec![];
             {
                 let ref cells = self.cells;
@@ -172,15 +126,20 @@ fn main() {
         println!("The first argument is {}", arg1);
     }
 
-    // Create an Glutin window.
-    let mut window: Window = WindowSettings::new(
+    // Create an Piston window.
+    let mut window: GlutinWindow = WindowSettings::new(
             "life",
             [200, 200]
         )
         .opengl(opengl)
         .exit_on_esc(true)
+        .samples(4)
         .build()
         .unwrap();
+
+
+    let (mut device, mut factory) = gfx_device_gl::create(|s|
+        window.get_proc_address(s) as *const std::os::raw::c_void);
 
     // Create a new game and run it.
 
@@ -194,7 +153,7 @@ fn main() {
             //Should be calling distribution::Range according to docs
             let chance = rand::thread_rng().gen_range(1, 1001);
             let mut state = false;
-            if chance > 850 { 
+            if chance > 900 { 
                 state = true;
                 // new_board.set(x as isize,y as isize, state);
                 let ix = x as isize;
@@ -222,7 +181,7 @@ fn main() {
 
     let mut app = App {
         gl: GlGraphics::new(opengl),
-        speed: 0.05,
+        speed: 0.1,
         staleness: 0.0,
         scale: initial_scale,
         cells: new_board
@@ -236,12 +195,82 @@ fn main() {
     let mut render_acc = Duration::zero();
     let mut render_max = 0.0;
 
+    let mut encoder = factory.create_command_buffer().into();
+    let mut g2d = Gfx2d::new(opengl, &mut factory);
     let mut events = window.events();
+
+    let samples = 4;
+
+
+    let draw_size = window.draw_size();
+    let aa = samples as gfx::tex::NumSamples;
+
+    let color_format = <Srgba8 as Formatted>::get_format();
+    let depth_format = <DepthStencil as Formatted>::get_format();
+    
+
+
+            let dim = (draw_size.width as u16, draw_size.height as u16, 1, aa.into());
+            let (output_color, output_stencil) =
+                gfx_device_gl::create_main_targets_raw(dim, color_format.0, depth_format.0);
+
+    let output_color = Typed::new(output_color);
+    let output_stencil = Typed::new(output_stencil);
+
+    const WHITE:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+    const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+    const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+    const DARKGREY: [f32; 4] = [0.2, 0.2, 0.2, 1.0];
+
+    let size = 10.0 * app.scale;
+    let mut pad = 2.0 * app.scale;
+    if pad < 1.0 {
+        pad = 0.0;
+    }
+
+    // let ref cells = app.cells;
+
+    let board_size_x = app.cells.x_size as u32;
+    let board_size_y = app.cells.y_size as u32;
+    
+    let square = rectangle::square(0.0, 0.0, size);
+
     while let Some(e) = events.next(&mut window) {
         if let Some(r) = e.render_args() {
             let start = PreciseTime::now();
-            // whatever you want to do
-            app.render(&r);
+
+                
+            g2d.draw(&mut encoder, &output_color, &output_stencil, r.viewport(), |c, gl| {
+
+                let (gx, gy) = ((r.width / 2) as f64,
+                                (r.height / 2) as f64);
+                // Clear the screen.
+                clear(BLACK, gl);
+
+                let board_x_pixels = f64::from(board_size_x)*(size+pad);
+                let board_y_pixels = f64::from(board_size_y)*(size+pad);
+
+                let transform = c.transform.trans(gx, gy)
+                                        .trans(-(board_x_pixels/2.0), -(board_y_pixels/2.0));
+
+                // for x in 0..board_size_x {
+                //     for y in 0..board_size_y {
+                //         let xfloat : f64 = f64::from(x);
+                //         let yfloat : f64 = f64::from(y);
+                //         rectangle(DARKGREY, square, transform.trans(xfloat*(size+pad),yfloat*(size+pad)), gl);
+
+                //     }
+                // }
+
+                for &(x,y) in &app.cells.active {
+                    let xfloat : f64 = f64::from(x as u32);
+                    let yfloat : f64 = f64::from(y as u32);
+                    rectangle(RED, square, transform.trans(xfloat*(size+pad),yfloat*(size+pad)), gl);
+                }
+            });
+
+            encoder.flush(&mut device);
+
             let end = PreciseTime::now();
             render_count += 1;
             render_acc = render_acc + start.to(end);
@@ -261,17 +290,31 @@ fn main() {
             use piston_window::Button::Keyboard;
             use piston_window::Key;
 
-            if k == Keyboard(Key::S) {
-                app.scale = initial_scale;
+            match k {
+                Keyboard(Key::S) => {
+                    app.scale = initial_scale;
+                    app.scale += 10.0;
+                    println!("Changing scale");
+                },
+                Keyboard(Key::Plus) => {
+                    app.scale += 1.0;
+                },
+                Keyboard(Key::Minus) => {
+                    app.scale -= 1.0;
+                },
+                _ => {}
             }
+
+
         }
 
         if let Some(s) = e.mouse_scroll_args() {
             app.scale += s[1] * (app.scale / 10.0);
             if app.scale < 0.0 {
                 app.scale = 0.0;
+                println!("Scrolling scale");
             }
-        } 
+        }
     }
 
     println!("Average render time: {}", render_acc / render_count);
