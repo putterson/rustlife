@@ -18,6 +18,7 @@ use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL };
 use std::env;
+use std::collections::HashSet;
 
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
@@ -114,7 +115,7 @@ impl App {
 }
 
     fn update_cell((x,y) : (isize, isize), board_size_x : usize, board_size_y : usize, cells : &LifeBoard) -> Vec<(isize, isize, bool)> {
-        let coords = surrounding_cells(x,y,board_size_x, board_size_y);
+        let coords = surrounding_cells(x,y);
         let current_cell = cells.get(x,y);
         let mut further_updates = vec![];
         let mut v = vec![];
@@ -147,11 +148,10 @@ impl App {
         return v;
     }
 
-fn surrounding_cells(x : isize, y : isize, xmax : usize, ymax : usize) -> Vec<(isize, isize)>{
+fn surrounding_cells(x : isize, y : isize) -> Vec<(isize, isize)>{
     let mut v : Vec<(isize,isize)> = vec![];
     for xs in [x-1, x, x+1].iter() {
         for ys in [y-1, y, y+1].iter() {
-            //& (*xs <= x+1) & (*ys <= y+1)
             if !((*xs == x) & (*ys == y)) {
                 v.push((*xs,*ys));
             }
@@ -186,8 +186,6 @@ fn main() {
 
     let mut new_board = LifeBoard::new(size, size);
     let initial_scale = 0.5;
-    
-    let mut updates = 0;
 
     for x in 0..new_board.x_size {
         for y in 0..new_board.y_size {
@@ -230,17 +228,14 @@ fn main() {
     
     let mut update_count = 0;
     let mut update_acc = Duration::zero();
-    let mut update_max = 0.0;
 
     let mut render_count = 0;
     let mut render_acc = Duration::zero();
-    let mut render_max = 0.0;
 
     let mut events = window.events();
     while let Some(e) = events.next(&mut window) {
         if let Some(r) = e.render_args() {
             let start = PreciseTime::now();
-            // whatever you want to do
             app.render(&r);
             let end = PreciseTime::now();
             render_count += 1;
@@ -249,7 +244,6 @@ fn main() {
 
         if let Some(u) = e.update_args() {
             let start = PreciseTime::now();
-            // whatever you want to do
             if app.update(&u) {
                 let end = PreciseTime::now();
                 update_count += 1;
