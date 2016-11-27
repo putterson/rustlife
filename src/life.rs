@@ -14,7 +14,7 @@ impl LifeBoard {
             x_size: x,
             y_size: y,
             board: vec![false; x*y].into_boxed_slice(),
-            active: HashSet::new()
+            active: HashSet::with_capacity(x*y/2)
         }
     }
 
@@ -29,12 +29,14 @@ impl LifeBoard {
     pub fn set(&mut self, x: isize, y: isize, v: bool) {
         let wrapped_x = wrap(x, self.x_size);
         let wrapped_y = wrap(y, self.y_size);
-        if v {
-            self.active.insert((wrapped_x,wrapped_y));
-        } else {
-            self.active.remove(&(wrapped_x,wrapped_y));
+        if self.board[wrapped_x + wrapped_y * self.x_size] != v {
+            if v {
+                self.active.insert((wrapped_x, wrapped_y));
+            } else {
+                self.active.remove(&(wrapped_x, wrapped_y));
+            }
+            self.board[wrapped_x + wrapped_y*self.x_size] = v;
         }
-        self.board[wrapped_x + wrapped_y*self.x_size] = v;
     }
 }
 

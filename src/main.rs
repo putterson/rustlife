@@ -53,15 +53,15 @@ impl App {
         let (gx, gy) = ((args.width / 2) as f64,
                       (args.height / 2) as f64);
 
+
+        let board_x_pixels = f64::from(board_size_x)*(size+pad);
+        let board_y_pixels = f64::from(board_size_y)*(size+pad);
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
             clear(BLACK, gl);
 
-            let board_x_pixels = f64::from(board_size_x)*(size+pad);
-            let board_y_pixels = f64::from(board_size_y)*(size+pad);
-
             let transform = c.transform.trans(gx, gy)
-                                       .trans(-(board_x_pixels/2.0), -(board_y_pixels/2.0));
+                .trans(-(board_x_pixels/2.0), -(board_y_pixels/2.0));
 
             // for x in 0..board_size_x {
             //     for y in 0..board_size_y {
@@ -85,7 +85,7 @@ impl App {
     fn update(&mut self, args: &UpdateArgs) -> bool {
         self.staleness += args.dt;
         if self.staleness >= self.speed {
-            self.staleness = self.staleness - self.speed;
+            self.staleness = 0.0;
             let mut actions : Vec<(isize,isize,bool)> = vec![];
             {
                 let ref cells = self.cells;
@@ -96,10 +96,10 @@ impl App {
                 for &(x,y) in &cells.active {
                     let ix = x as isize;
                     let iy = y as isize;
-                    actions.extend(update_cell((ix, iy), board_size_x, board_size_y, cells));
+                    update_cell((ix, iy), board_size_x, board_size_y, cells, &mut actions);
                 }
             }
-            
+//            let mut actions : HashSet<(isize,isize,bool)> = HashSet::with_capacity(actions.len());
             for (x, y, state) in actions {
                 self.cells.set(x, y, state);
             }
@@ -114,15 +114,15 @@ impl App {
 
 }
 
-    fn update_cell((x,y) : (isize, isize), board_size_x : usize, board_size_y : usize, cells : &LifeBoard) -> Vec<(isize, isize, bool)> {
+    fn update_cell((x,y) : (isize, isize), board_size_x : usize, board_size_y : usize, cells : &LifeBoard, v : &mut Vec<(isize, isize, bool)>) {
         let coords = surrounding_cells(x,y);
         let current_cell = cells.get(x,y);
         let mut further_updates = vec![];
-        let mut v = vec![];
+
         {
             let surr = coords.iter().map(|&(x,y)| {return match cells.get(x,y) {
                 false => {
-                    further_updates.push((x,y).clone());
+                    if current_cell {further_updates.push((x,y).clone());}
                     return 0;
                 },
                 true => 1,
@@ -141,11 +141,9 @@ impl App {
 
         if current_cell {
             for update in further_updates.iter() {
-                v.extend(update_cell(*update, board_size_x, board_size_y, cells));
+                update_cell(*update, board_size_x, board_size_y, cells, v);
             }
         }
-
-        return v;
     }
 
 fn surrounding_cells(x : isize, y : isize) -> Vec<(isize, isize)>{
@@ -192,7 +190,7 @@ fn main() {
             //Should be calling distribution::Range according to docs
             let chance = rand::thread_rng().gen_range(1, 1001);
             let mut state = false;
-            if chance > 850 { 
+            if chance > 999 {
                 state = true;
                 // new_board.set(x as isize,y as isize, state);
                 let ix = x as isize;
@@ -265,7 +263,7 @@ fn main() {
             if app.scale < 0.0 {
                 app.scale = 0.0;
             }
-        } 
+        }
     }
 
     println!("Average render time: {}", render_acc / render_count);
